@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Legado TCG · Acerca tu celular</title>
+<style>
+  :root{
+    --blue:#2f80ff;
+    --pink:#ff2b7d;
+    --bg:#040406;          /* casi negro, igual al fondo de las imágenes */
+    --metal:#c9ccd1;
+    --cycle:7s;
+  }
+  *{box-sizing:border-box;margin:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:#e8eaee;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden}
+
+  .stage{--u:min(.78vh,1.2vw);height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(var(--u)*4)}
+  .scene{position:relative;width:calc(var(--u)*52);height:calc(var(--u)*64)}
+
+  /* ---------- Escáner ---------- */
+  .scanner{position:absolute;left:50%;bottom:0;translate:-50% 0;width:calc(var(--u)*42);height:calc(var(--u)*10);
+    background:linear-gradient(#23262b,#101215);border-radius:calc(var(--u)*2.6) calc(var(--u)*2.6) calc(var(--u)*1.2) calc(var(--u)*1.2);
+    box-shadow:calc(var(--u)*-1) 0 calc(var(--u)*4) rgba(47,128,255,.16),calc(var(--u)*1) 0 calc(var(--u)*4) rgba(255,43,125,.16);
+    border:1px solid #2c3036}
+  .window{position:absolute;left:9%;right:9%;top:calc(var(--u)*2);height:calc(var(--u)*2.4);border-radius:99px;background:#050608;overflow:hidden}
+  .window::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,var(--blue),var(--pink));opacity:.18;animation:window var(--cycle) infinite}
+  .beam{position:absolute;left:50%;bottom:calc(var(--u)*8.5);translate:-50% 0;width:calc(var(--u)*34);height:calc(var(--u)*24);
+    background:linear-gradient(to top,rgba(255,255,255,.34),transparent),linear-gradient(90deg,var(--blue),var(--pink));
+    background-blend-mode:screen;-webkit-mask-image:linear-gradient(to top,#000,transparent);mask-image:linear-gradient(to top,#000,transparent);
+    clip-path:polygon(8% 100%,92% 100%,100% 0,0 0);opacity:0;animation:beam var(--cycle) infinite}
+  .ring{position:absolute;left:50%;bottom:calc(var(--u)*9.5);translate:-50% 0;width:calc(var(--u)*30);height:calc(var(--u)*5);
+    border-radius:50%;border:calc(var(--u)*.35) solid transparent;
+    background:linear-gradient(var(--bg),var(--bg)) padding-box,linear-gradient(90deg,var(--blue),var(--pink)) border-box;
+    opacity:0;animation:ring var(--cycle) infinite}
+
+  /* ---------- Celular ---------- */
+  .phone{position:absolute;left:50%;bottom:calc(var(--u)*12);width:calc(var(--u)*24);height:calc(var(--u)*46);translate:-50% 0;
+    background:#0c0d10;border-radius:calc(var(--u)*3.8);padding:calc(var(--u)*.8);
+    border:calc(var(--u)*.3) solid transparent;
+    background:linear-gradient(#0c0d10,#0c0d10) padding-box,linear-gradient(90deg,var(--blue),var(--pink)) border-box;
+    box-shadow:calc(var(--u)*-1) 0 calc(var(--u)*4) rgba(47,128,255,.28),calc(var(--u)*1) 0 calc(var(--u)*4) rgba(255,43,125,.28);
+    opacity:0;animation:phone var(--cycle) cubic-bezier(.5,0,.2,1) infinite}
+  .screen{position:relative;height:100%;background:#08080b;border-radius:calc(var(--u)*3);overflow:hidden;
+    display:flex;flex-direction:column;align-items:center;padding:calc(var(--u)*3.6) calc(var(--u)*1.8) calc(var(--u)*1.8)}
+  .notch{position:absolute;top:calc(var(--u)*1);left:50%;translate:-50% 0;width:calc(var(--u)*6);height:calc(var(--u)*1.4);background:#000;border-radius:99px}
+
+  .pass{width:100%;flex:1;border-radius:calc(var(--u)*1.8);display:flex;flex-direction:column;align-items:center;justify-content:space-between;
+    padding:calc(var(--u)*1.6) calc(var(--u)*1.2) calc(var(--u)*1.6);text-align:center;
+    border:calc(var(--u)*.2) solid transparent;
+    background:radial-gradient(circle at 50% 30%,#15171c,#07080a 70%) padding-box,linear-gradient(135deg,var(--blue),var(--pink)) border-box}
+  .pass img{width:calc(var(--u)*15);height:auto;mix-blend-mode:screen;
+    -webkit-mask-image:radial-gradient(ellipse at center,#000 55%,transparent 80%);mask-image:radial-gradient(ellipse at center,#000 55%,transparent 80%)}
+  .pass b{font-size:calc(var(--u)*1.9);font-weight:600;letter-spacing:.04em;color:var(--metal)}
+  .qr{width:calc(var(--u)*11);height:calc(var(--u)*11);background:#fff;border-radius:calc(var(--u)*.9);padding:calc(var(--u)*.8);position:relative;overflow:hidden}
+  .qr svg{width:100%;height:100%;display:block}
+  .scanline{position:absolute;left:0;right:0;top:0;height:calc(var(--u)*.45);background:linear-gradient(90deg,var(--blue),var(--pink));
+    box-shadow:0 0 calc(var(--u)*1.2) var(--pink);opacity:0;animation:scan var(--cycle) infinite}
+
+  /* Confirmación */
+  .chip{position:absolute;left:50%;top:calc(var(--u)*10);translate:-50% 0;display:flex;align-items:center;gap:calc(var(--u)*1.2);
+    padding:calc(var(--u)*1.2) calc(var(--u)*2.6);border-radius:99px;font-size:calc(var(--u)*2.8);font-weight:600;white-space:nowrap;color:#fff;
+    border:calc(var(--u)*.25) solid transparent;
+    background:linear-gradient(#0a0b0e,#0a0b0e) padding-box,linear-gradient(90deg,var(--blue),var(--pink)) border-box;
+    box-shadow:0 0 calc(var(--u)*3) rgba(255,43,125,.35);opacity:0;animation:chip var(--cycle) infinite}
+  .chip i{width:calc(var(--u)*3.2);height:calc(var(--u)*3.2);border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--pink));display:grid;place-items:center}
+  .chip svg{width:62%;height:62%}
+
+  .hint{font-size:calc(var(--u)*3.2);font-weight:600;text-align:center;line-height:1.25;color:var(--metal)}
+  .hint small{display:block;margin-top:calc(var(--u)*.8);font-size:calc(var(--u)*2.1);font-weight:400;opacity:.6}
+
+  /* Pie: la imagen se funde con el fondo */
+  .pie{width:min(92vw,calc(var(--u)*76));height:auto;mix-blend-mode:screen;
+    -webkit-mask-image:radial-gradient(ellipse 60% 65% at center,#000 60%,transparent 100%);mask-image:radial-gradient(ellipse 60% 65% at center,#000 60%,transparent 100%)}
+
+  /* ---------- Línea de tiempo ---------- */
+  @keyframes phone{
+    0%{opacity:0;transform:translateY(calc(var(--u)*-20)) rotate(7deg) scale(.92)}
+    12%{opacity:1}
+    36%,64%{opacity:1;transform:translateY(0) rotate(0) scale(1)}
+    86%,100%{opacity:0;transform:translateY(calc(var(--u)*-20)) rotate(-5deg) scale(.92)}
+  }
+  @keyframes scan{0%,38%{opacity:0;top:0}40%{opacity:1;top:0}54%{opacity:1;top:calc(100% - var(--u)*.45)}56%,100%{opacity:0}}
+  @keyframes beam{0%,38%{opacity:0}42%,56%{opacity:.85}64%,100%{opacity:0}}
+  @keyframes window{0%,38%{opacity:.18}42%,56%{opacity:1}64%,100%{opacity:.18}}
+  @keyframes ring{0%,55%{opacity:0;transform:scale(.6)}57%{opacity:1}72%,100%{opacity:0;transform:scale(1.5)}}
+  @keyframes chip{0%,56%{opacity:0;transform:translateY(calc(var(--u)*2))}62%,78%{opacity:1;transform:translateY(0)}86%,100%{opacity:0;transform:translateY(calc(var(--u)*-1.5))}}
+
+  @media (prefers-reduced-motion:reduce){
+    .phone{animation:none;opacity:1}
+    .beam,.ring,.scanline,.chip{animation:none}
+    .window::after{animation:none;opacity:.6}
+  }
+</style>
+</head>
+<body>
+<main class="stage">
+  <div class="scene" aria-hidden="true">
+    <div class="beam"></div>
+    <div class="ring"></div>
+
+    <div class="phone">
+      <div class="screen">
+        <span class="notch"></span>
+        <div class="pass">
+          <img src="logo.png" alt="">
+          <b>Tarjeta de lealtad</b>
+          <div class="qr">
+            <svg viewBox="0 0 7 7" shape-rendering="crispEdges" fill="#111">
+              <path d="M0 0h3v3H0zM4 0h3v3H4zM0 4h3v3H0z"/><path d="M1 1h1v1H1zM5 1h1v1H5zM1 5h1v1H1z" fill="#fff"/>
+              <path d="M4 4h1v1H4zM6 4h1v1H6zM5 5h1v1H5zM4 6h1v1H4zM6 6h1v1H6z"/>
+            </svg>
+            <span class="scanline"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chip">
+      <i><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></i>
+      +1 visita
+    </div>
+
+    <div class="scanner"><div class="window"></div></div>
+  </div>
+
+  <p class="hint">Acerca tu celular al lector<small>Muestra tu tarjeta de Apple Wallet y suma puntos</small></p>
+
+  <img class="pie" src="Legado_pie.png" alt="Legado TCG. Cartas que conectan, legados que perduran.">
+</main>
+</body>
+</html>
