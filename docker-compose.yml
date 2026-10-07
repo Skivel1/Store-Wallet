@@ -3,6 +3,8 @@ services:
     build: .
     ports:
       - "3000:3000"
-    env_file:
-      - .env
+    environment:
+      PASSKIT_API_TOKEN: ${PASSKIT_API_TOKEN}
+      PASSKIT_PROGRAM_ID: ${PASSKIT_PROGRAM_ID:-7M5zliU32a3mlAgSEHnqGb}
+      PUNTOS_POR_VISITA: ${PUNTOS_POR_VISITA:-10}
     restart: unless-stopped
