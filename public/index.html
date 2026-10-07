@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kiosco de Lealtad</title>
+    <!-- Librería para el Confeti 3D -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Decodificador QR de respaldo (iPhone/Safari y navegadores sin BarcodeDetector) -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        
+        body {
+            height: 100vh;
+            height: 100dvh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            background-size: 400% 400%;
+            animation: gradientBG 12s ease infinite;
+            color: white;
+            overflow: hidden;
+            text-align: center;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        #scanner-input { position: absolute; left: -9999px; font-size: 16px; }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 60px 40px;
+            border-radius: 36px;
+            width: 850px;
+            max-width: 90%;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.6);
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .floating {
+            animation: float 4s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-15px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .icon {
+            font-size: 110px;
+            margin-bottom: 20px;
+            display: inline-block;
+        }
+
+        .spin-slow {
+            animation: spin 10s linear infinite;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        h1 { font-size: 3.8rem; margin-bottom: 15px; font-weight: 800; line-height: 1.1; }
+        p { font-size: 1.7rem; color: #a8b2d1; }
+
+        .estado-exito {
+            border-color: #00ff88;
+            box-shadow: 0 0 90px rgba(0, 255, 136, 0.4);
+            background: rgba(0, 255, 136, 0.12);
+        }
+
+        .estado-warning {
+            border-color: #ff9d00;
+            box-shadow: 0 0 90px rgba(255, 157, 0, 0.4);
+            animation: shake 0.5s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-15px); }
+            40% { transform: translateX(15px); }
+            60% { transform: translateX(-15px); }
+            80% { transform: translateX(15px); }
+        }
+
+        .puntos-badge {
+            display: inline-block;
+            background: linear-gradient(45deg, #00ff88, #00b3ff);
+            color: #000;
+            padding: 18px 45px;
+            font-size: 2.2rem;
+            font-weight: 900;
+            border-radius: 60px;
+            margin-top: 35px;
+            box-shadow: 0 10px 25px rgba(0,255,136,0.4);
+            transform: scale(0);
+            animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            animation-delay: 0.2s;
+        }
+
+        @keyframes popIn { to { transform: scale(1); } }
+
+        .nombre-verde {
+            color: #00ff88;
+            text-shadow: 0 0 25px rgba(0,255,136,0.6);
+            display: block;
+            font-size: 4.2rem;
+            margin-top: 10px;
+        }
+
+        /* ===== Botón de cámara (esquina) ===== */
+        #btn-camara {
+            position: fixed;
+            right: max(16px, env(safe-area-inset-right));
+            bottom: max(16px, env(safe-area-inset-bottom));
+            width: 56px; height: 56px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.25);
+            background: rgba(255,255,255,0.12);
+            backdrop-filter: blur(10px);
+            color: #fff; font-size: 26px; line-height: 1;
+            cursor: pointer; z-index: 50;
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0.75;
+            transition: opacity .2s, transform .2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #btn-camara:hover, #btn-camara:active { opacity: 1; transform: scale(1.08); }
+
+        /* ===== Visor de cámara ===== */
+        #visor {
+            position: fixed; inset: 0; z-index: 1000;
+            background: #000;
+            display: none;
+            flex-direction: column;
+            align-items: center; justify-content: center;
+        }
+        #visor.activo { display: flex; }
+        #visor video {
+            position: absolute; inset: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+        }
+        #marco {
+            position: relative; z-index: 2;
+            width: min(70vw, 70vh, 320px); aspect-ratio: 1;
+            border: 3px solid #00ff88;
+            border-radius: 24px;
+            box-shadow: 0 0 0 100vmax rgba(0,0,0,0.55);
+        }
+        #visor-msg {
+            position: absolute; z-index: 3;
+            left: 16px; right: 16px;
+            bottom: max(40px, env(safe-area-inset-bottom));
+            font-size: 1.15rem; color: #fff;
+            background: rgba(0,0,0,0.6);
+            padding: 12px 16px; border-radius: 14px;
+        }
+        #btn-cerrar {
+            position: absolute; z-index: 3;
+            top: max(16px, env(safe-area-inset-top));
+            right: max(16px, env(safe-area-inset-right));
+            width: 48px; height: 48px; border-radius: 50%;
+            border: none; background: rgba(0,0,0,0.6);
+            color: #fff; font-size: 24px; cursor: pointer;
+        }
+
+        /* ===== Pantallas pequeñas (celular) ===== */
+        @media (max-width: 700px) {
+            .card { padding: 40px 22px; border-radius: 28px; }
+            .icon { font-size: 80px; }
+            h1 { font-size: 2.2rem; }
+            p { font-size: 1.15rem; }
+            .nombre-verde { font-size: 2.4rem; }
+            .puntos-badge { font-size: 1.5rem; padding: 14px 30px; margin-top: 25px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- inputmode="none": el lector físico sigue funcionando, pero no abre el teclado en celulares -->
+    <input type="text" id="scanner-input" inputmode="none" autofocus autocomplete="off">
+
+    <div id="pantalla" class="card floating">
+        <div id="icono" class="icon spin-slow">📱</div>
+        <h1 id="titulo">Escanea tu código</h1>
+        <p id="subtitulo">para ganar puntos por visita</p>
+        <div id="contenedor-puntos"></div>
+    </div>
+
+
+    <button id="btn-camara" type="button" aria-label="Escanear con la cámara" title="Escanear con la cámara">📷</button>
+
+    <div id="visor" role="dialog" aria-label="Escáner de cámara">
+        <video id="video" playsinline muted autoplay></video>
+        <div id="marco"></div>
+        <button id="btn-cerrar" type="button" aria-label="Cerrar cámara">✕</button>
+        <div id="visor-msg">Iniciando cámara...</div>
+    </div>
+
+    <script>
+        const input = document.getElementById('scanner-input');
+        const pantalla = document.getElementById('pantalla');
+        const icono = document.getElementById('icono');
+        const titulo = document.getElementById('titulo');
+        const subtitulo = document.getElementById('subtitulo');
+        const contPuntos = document.getElementById('contenedor-puntos');
+
+        let procesando = false;
+
+        const visor = document.getElementById('visor');
+        const video = document.getElementById('video');
+        const visorMsg = document.getElementById('visor-msg');
+        const btnCamara = document.getElementById('btn-camara');
+        const btnCerrar = document.getElementById('btn-cerrar');
+
+        // El lector físico escribe en el input oculto: lo mantenemos enfocado salvo con la cámara abierta
+        const enfocar = () => { if (!visor.classList.contains('activo')) input.focus({ preventScroll: true }); };
+        document.addEventListener('click', enfocar);
+        setInterval(enfocar, 800);
+
+        input.addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter') {
+                const passId = input.value.trim();
+                input.value = '';
+                if (passId && !procesando) enviarEscaneo(passId);
+            }
+        });
+
+        async function enviarEscaneo(passId) {
+            procesando = true;
+            estadoCargando();
+
+            try {
+                const res = await fetch('/api/escanear', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ passId })
+                });
+                const data = await res.json();
+
+                if (data.estado === 'exito') {
+                    estadoExito(data.nombre, data.puntosTotales);
+                } else if (data.estado === 'ya_visitado') {
+                    estadoYaVisitado();
+                } else {
+                    estadoError(data.mensaje);
+                }
+
+            } catch (err) {
+                estadoError("No se pudo conectar con el servidor");
+            }
+
+            setTimeout(estadoInicial, 5000);
+        }
+
+        function estadoCargando() {
+            pantalla.className = 'card';
+            icono.className = 'icon spin-slow';
+            icono.innerText = '⚙️';
+            titulo.innerHTML = 'Verificando...';
+            subtitulo.innerText = 'Consultando tu Apple Wallet';
+            contPuntos.innerHTML = '';
+        }
+
+        function estadoExito(nombre, puntosTotales) {
+            pantalla.className = 'card estado-exito';
+            icono.className = 'icon';
+            icono.innerText = '🎉';
+            titulo.innerHTML = `¡Bienvenido/a!<span class="nombre-verde">${escapeHtml(nombre)}</span>`;
+            subtitulo.innerText = 'Se agregaron +10 puntos por tu visita de hoy';
+            contPuntos.innerHTML = `<div class="puntos-badge">Saldo actual: ${puntosTotales} pts</div>`;
+            lanzarConfeti();
+        }
+
+        function estadoYaVisitado() {
+            pantalla.className = 'card estado-warning';
+            icono.className = 'icon';
+            icono.innerText = '⏳';
+            titulo.innerHTML = '¡Visita ya registrada!';
+            subtitulo.innerText = 'Ya acumulaste tus puntos de hoy. Inténtalo de nuevo mañana tras las 00:00.';
+            contPuntos.innerHTML = '';
+        }
+
+        function estadoError(msj) {
+            pantalla.className = 'card estado-warning';
+            icono.className = 'icon';
+            icono.innerText = '❌';
+            titulo.innerHTML = 'Código no encontrado';
+            subtitulo.innerText = msj || 'Verifica que el pase exista en PassKit.';
+            contPuntos.innerHTML = '';
+        }
+
+        function estadoInicial() {
+            procesando = false;
+            pantalla.className = 'card floating';
+            icono.className = 'icon spin-slow';
+            icono.innerText = '📱';
+            titulo.innerHTML = 'Escanea tu código';
+            subtitulo.innerText = 'para ganar puntos por visita';
+            contPuntos.innerHTML = '';
+            input.focus();
+        }
+
+        function lanzarConfeti() {
+            var duration = 3000;
+            var end = Date.now() + duration;
+
+            (function frame() {
+                confetti({
+                    particleCount: 6,
+                    angle: 60,
+                    spread: 60,
+                    origin: { x: 0 },
+                    colors: ['#00ff88', '#ffffff', '#00b3ff']
+                });
+                confetti({
+                    particleCount: 6,
+                    angle: 120,
+                    spread: 60,
+                    origin: { x: 1 },
+                    colors: ['#00ff88', '#ffffff', '#00b3ff']
+                });
+
+                if (Date.now() < end) requestAnimationFrame(frame);
+            }());
+        }
+
+        function escapeHtml(t) {
+            return String(t).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+        }
+
+        // ============================================================
+        // ESCÁNER POR CÁMARA (cámara trasera del celular)
+        // ============================================================
+        let stream = null;
+        let escaneando = false;
+        let detector = null;      // BarcodeDetector nativo, o false si no está disponible
+        let ultimoTick = 0;
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        async function prepararDetector() {
+            if (detector !== null) return;
+            detector = false;
+            if ('BarcodeDetector' in window) {
+                try {
+                    const soportados = await BarcodeDetector.getSupportedFormats();
+                    const formatos = ['qr_code', 'pdf417', 'aztec', 'code_128', 'data_matrix']
+                        .filter(f => soportados.includes(f));
+                    if (formatos.length) detector = new BarcodeDetector({ formats: formatos });
+                } catch (e) { detector = false; }
+            }
+        }
+
+        async function abrirCamara() {
+            if (procesando) return;
+            visor.classList.add('activo');
+            visorMsg.textContent = 'Iniciando cámara...';
+
+            if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                visorMsg.textContent = 'La cámara solo funciona en páginas seguras (HTTPS) y en un navegador compatible.';
+                return;
+            }
+
+            try {
+                await prepararDetector();
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: { ideal: 'environment' },   // cámara trasera
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
+                });
+                video.srcObject = stream;
+                await video.play();
+                visorMsg.textContent = 'Apunta al código QR';
+                escaneando = true;
+                requestAnimationFrame(bucleEscaneo);
+            } catch (err) {
+                cerrarStream();
+                if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
+                    visorMsg.textContent = 'Permiso de cámara denegado. Actívalo en los ajustes del navegador e inténtalo de nuevo.';
+                } else if (err.name === 'NotFoundError' || err.name === 'OverconstrainedError') {
+                    visorMsg.textContent = 'No se encontró ninguna cámara en este dispositivo.';
+                } else {
+                    visorMsg.textContent = 'No se pudo iniciar la cámara (' + (err.name || 'error') + ').';
+                }
+            }
+        }
+
+        function cerrarStream() {
+            escaneando = false;
+            if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+            video.srcObject = null;
+        }
+
+        function cerrarCamara() {
+            cerrarStream();
+            visor.classList.remove('activo');
+            input.focus({ preventScroll: true });
+        }
+
+        async function leerFrame() {
+            if (detector) {
+                try {
+                    const r = await detector.detect(video);
+                    return r.length ? r[0].rawValue : null;
+                } catch (e) { detector = false; }   // si falla, seguimos con jsQR
+            }
+            if (typeof jsQR === 'undefined' || !video.videoWidth) return null;
+            const escala = Math.min(1, 640 / video.videoWidth);
+            canvas.width = Math.round(video.videoWidth * escala);
+            canvas.height = Math.round(video.videoHeight * escala);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(img.data, canvas.width, canvas.height, { inversionAttempts: 'dontInvert' });
+            return code ? code.data : null;
+        }
+
+        async function bucleEscaneo(ts) {
+            if (!escaneando) return;
+            if (video.readyState >= 2 && ts - ultimoTick > 150) {
+                ultimoTick = ts;
+                const texto = await leerFrame();
+                if (texto && escaneando) {
+                    if (navigator.vibrate) navigator.vibrate(100);
+                    cerrarCamara();
+                    if (!procesando) enviarEscaneo(texto.trim());
+                    return;
+                }
+            }
+            requestAnimationFrame(bucleEscaneo);
+        }
+
+        btnCamara.addEventListener('click', (e) => { e.stopPropagation(); abrirCamara(); });
+        btnCerrar.addEventListener('click', (e) => { e.stopPropagation(); cerrarCamara(); });
+        document.addEventListener('visibilitychange', () => { if (document.hidden) cerrarCamara(); });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && visor.classList.contains('activo')) cerrarCamara(); });
+    </script>
+</body>
+</html>
