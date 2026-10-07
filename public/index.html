@@ -1,449 +1,348 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kiosco de Lealtad</title>
-    <!-- Librería para el Confeti 3D -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <!-- Decodificador QR de respaldo (iPhone/Safari y navegadores sin BarcodeDetector) -->
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        
-        body {
-            height: 100vh;
-            height: 100dvh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-            background-size: 400% 400%;
-            animation: gradientBG 12s ease infinite;
-            color: white;
-            overflow: hidden;
-            text-align: center;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Legado TCG · Kiosco de Lealtad</title>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<style>
+:root{--blue:#2f80ff;--pink:#ff2b7d;--bg:#040406;--metal:#c9ccd1;--cycle:7s;--pie:min(70vw,480px)}
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+html,body{height:100%}
+body{height:100dvh;display:flex;justify-content:center;align-items:center;background:var(--bg);color:#e8eaee;overflow:hidden;text-align:center;
+  padding-bottom:calc(var(--pie)*.3 + 16px)}
+#scanner-input{position:absolute;left:-9999px;font-size:16px}
 
-        @keyframes gradientBG {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
+/* Pie de página: se funde con el fondo */
+.pie{position:fixed;left:50%;bottom:8px;translate:-50% 0;width:var(--pie);height:auto;pointer-events:none;mix-blend-mode:screen;
+  -webkit-mask-image:radial-gradient(ellipse 60% 65% at center,#000 60%,transparent 100%);mask-image:radial-gradient(ellipse 60% 65% at center,#000 60%,transparent 100%)}
 
-        #scanner-input { position: absolute; left: -9999px; font-size: 16px; }
+/* Alterna entre espera (animación) y resultado */
+body.idle #pantalla{display:none}
+body.resultado #idle{display:none}
 
-        .card {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(25px);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            padding: 60px 40px;
-            border-radius: 36px;
-            width: 850px;
-            max-width: 90%;
-            box-shadow: 0 30px 60px rgba(0,0,0,0.6);
-            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
+/* ===== Espera: celular acercándose al lector ===== */
+#idle{--u:min(.7vh,1.1vw);display:flex;flex-direction:column;align-items:center;gap:calc(var(--u)*4)}
+.scene{position:relative;width:calc(var(--u)*52);height:calc(var(--u)*64)}
+.scanner{position:absolute;left:50%;bottom:0;translate:-50% 0;width:calc(var(--u)*42);height:calc(var(--u)*10);
+  background:linear-gradient(#23262b,#101215);border:1px solid #2c3036;border-radius:calc(var(--u)*2.6) calc(var(--u)*2.6) calc(var(--u)*1.2) calc(var(--u)*1.2);
+  box-shadow:calc(var(--u)*-1) 0 calc(var(--u)*4) rgba(47,128,255,.16),calc(var(--u)*1) 0 calc(var(--u)*4) rgba(255,43,125,.16)}
+.window{position:absolute;left:9%;right:9%;top:calc(var(--u)*2);height:calc(var(--u)*2.4);border-radius:99px;background:#050608;overflow:hidden}
+.window::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,var(--blue),var(--pink));opacity:.18;animation:window var(--cycle) infinite}
+.beam{position:absolute;left:50%;bottom:calc(var(--u)*8.5);translate:-50% 0;width:calc(var(--u)*34);height:calc(var(--u)*24);
+  background:linear-gradient(to top,rgba(255,255,255,.34),transparent),linear-gradient(90deg,var(--blue),var(--pink));background-blend-mode:screen;
+  -webkit-mask-image:linear-gradient(to top,#000,transparent);mask-image:linear-gradient(to top,#000,transparent);
+  clip-path:polygon(8% 100%,92% 100%,100% 0,0 0);opacity:0;animation:beam var(--cycle) infinite}
+.ring{position:absolute;left:50%;bottom:calc(var(--u)*9.5);translate:-50% 0;width:calc(var(--u)*30);height:calc(var(--u)*5);border-radius:50%;
+  border:calc(var(--u)*.35) solid transparent;background:linear-gradient(var(--bg),var(--bg)) padding-box,linear-gradient(90deg,var(--blue),var(--pink)) border-box;
+  opacity:0;animation:ring var(--cycle) infinite}
+.phone{position:absolute;left:50%;bottom:calc(var(--u)*12);width:calc(var(--u)*24);height:calc(var(--u)*46);translate:-50% 0;
+  padding:calc(var(--u)*.8);border:calc(var(--u)*.3) solid transparent;border-radius:calc(var(--u)*3.8);
+  background:linear-gradient(#0c0d10,#0c0d10) padding-box,linear-gradient(90deg,var(--blue),var(--pink)) border-box;
+  box-shadow:calc(var(--u)*-1) 0 calc(var(--u)*4) rgba(47,128,255,.28),calc(var(--u)*1) 0 calc(var(--u)*4) rgba(255,43,125,.28);
+  opacity:0;animation:phone var(--cycle) cubic-bezier(.5,0,.2,1) infinite}
+.screen{position:relative;height:100%;background:#08080b;border-radius:calc(var(--u)*3);overflow:hidden;display:flex;flex-direction:column;align-items:center;
+  padding:calc(var(--u)*3.6) calc(var(--u)*1.8) calc(var(--u)*1.8)}
+.notch{position:absolute;top:calc(var(--u)*1);left:50%;translate:-50% 0;width:calc(var(--u)*6);height:calc(var(--u)*1.4);background:#000;border-radius:99px}
+.pass{width:100%;flex:1;border-radius:calc(var(--u)*1.8);display:flex;flex-direction:column;align-items:center;justify-content:space-between;
+  padding:calc(var(--u)*1.6) calc(var(--u)*1.2);border:calc(var(--u)*.2) solid transparent;
+  background:radial-gradient(circle at 50% 30%,#15171c,#07080a 70%) padding-box,linear-gradient(135deg,var(--blue),var(--pink)) border-box}
+.pass img{width:calc(var(--u)*15);height:auto;mix-blend-mode:screen;-webkit-mask-image:radial-gradient(ellipse at center,#000 55%,transparent 80%);mask-image:radial-gradient(ellipse at center,#000 55%,transparent 80%)}
+.pass b{font-size:calc(var(--u)*1.9);font-weight:600;letter-spacing:.04em;color:var(--metal)}
+.qr{width:calc(var(--u)*11);height:calc(var(--u)*11);background:#fff;border-radius:calc(var(--u)*.9);padding:calc(var(--u)*.8);position:relative;overflow:hidden}
+.qr svg{width:100%;height:100%;display:block}
+.scanline{position:absolute;left:0;right:0;top:0;height:calc(var(--u)*.45);background:linear-gradient(90deg,var(--blue),var(--pink));box-shadow:0 0 calc(var(--u)*1.2) var(--pink);opacity:0;animation:scan var(--cycle) infinite}
+.chip{position:absolute;left:50%;top:calc(var(--u)*10);translate:-50% 0;display:flex;align-items:center;gap:calc(var(--u)*1.2);padding:calc(var(--u)*1.2) calc(var(--u)*2.6);
+  border-radius:99px;font-size:calc(var(--u)*2.8);font-weight:600;white-space:nowrap;color:#fff;border:calc(var(--u)*.25) solid transparent;
+  background:linear-gradient(#0a0b0e,#0a0b0e) padding-box,linear-gradient(90deg,var(--blue),var(--pink)) border-box;box-shadow:0 0 calc(var(--u)*3) rgba(255,43,125,.35);
+  opacity:0;animation:chip var(--cycle) infinite}
+.chip i{width:calc(var(--u)*3.2);height:calc(var(--u)*3.2);border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--pink));display:grid;place-items:center}
+.chip svg{width:62%;height:62%}
+.hint{font-size:calc(var(--u)*3.4);font-weight:600;line-height:1.25;color:var(--metal)}
+.hint small{display:block;margin-top:calc(var(--u)*.8);font-size:calc(var(--u)*2.2);font-weight:400;opacity:.6}
+@keyframes phone{0%{opacity:0;transform:translateY(calc(var(--u)*-20)) rotate(7deg) scale(.92)}12%{opacity:1}36%,64%{opacity:1;transform:none}86%,100%{opacity:0;transform:translateY(calc(var(--u)*-20)) rotate(-5deg) scale(.92)}}
+@keyframes scan{0%,38%{opacity:0;top:0}40%{opacity:1;top:0}54%{opacity:1;top:calc(100% - var(--u)*.45)}56%,100%{opacity:0}}
+@keyframes beam{0%,38%{opacity:0}42%,56%{opacity:.85}64%,100%{opacity:0}}
+@keyframes window{0%,38%{opacity:.18}42%,56%{opacity:1}64%,100%{opacity:.18}}
+@keyframes ring{0%,55%{opacity:0;transform:scale(.6)}57%{opacity:1}72%,100%{opacity:0;transform:scale(1.5)}}
+@keyframes chip{0%,56%{opacity:0;transform:translateY(calc(var(--u)*2))}62%,78%{opacity:1;transform:none}86%,100%{opacity:0;transform:translateY(calc(var(--u)*-1.5))}}
+@media (prefers-reduced-motion:reduce){.phone{animation:none;opacity:1}.beam,.ring,.scanline,.chip{animation:none}.window::after{animation:none;opacity:.6}}
 
-        .floating {
-            animation: float 4s ease-in-out infinite;
-        }
+/* ===== Resultado ===== */
+.card{background:rgba(255,255,255,.04);backdrop-filter:blur(25px);border:1px solid rgba(255,255,255,.15);padding:60px 40px;border-radius:36px;width:850px;max-width:90%;
+  box-shadow:0 30px 60px rgba(0,0,0,.6)}
+.icon{font-size:110px;margin-bottom:20px;display:inline-block}
+.spin-slow{animation:spin 10s linear infinite}
+@keyframes spin{100%{transform:rotate(360deg)}}
+h1{font-size:3.8rem;margin-bottom:15px;font-weight:800;line-height:1.1}
+p{font-size:1.7rem;color:#9aa3b5}
+.estado-exito{border-color:var(--blue);box-shadow:-30px 0 90px rgba(47,128,255,.35),30px 0 90px rgba(255,43,125,.35);background:rgba(255,255,255,.06)}
+.estado-warning{border-color:#ff9d00;box-shadow:0 0 90px rgba(255,157,0,.4);animation:shake .5s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-15px)}40%{transform:translateX(15px)}60%{transform:translateX(-15px)}80%{transform:translateX(15px)}}
+.puntos-badge{display:inline-block;background:linear-gradient(45deg,var(--blue),var(--pink));color:#fff;padding:18px 45px;font-size:2.2rem;font-weight:900;border-radius:60px;margin-top:35px;
+  box-shadow:0 10px 25px rgba(255,43,125,.4);transform:scale(0);animation:popIn .6s cubic-bezier(.175,.885,.32,1.275) .2s forwards}
+@keyframes popIn{to{transform:scale(1)}}
+.nombre-verde{color:var(--metal);text-shadow:0 0 25px rgba(255,43,125,.6),0 0 40px rgba(47,128,255,.5);display:block;font-size:4.2rem;margin-top:10px}
 
-        @keyframes float {
-            0% { transform: translateY(0px); }
-            50% { transform: translateY(-15px); }
-            100% { transform: translateY(0px); }
-        }
+/* ===== Cámara ===== */
+#btn-camara{position:fixed;right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.12);backdrop-filter:blur(10px);color:#fff;font-size:26px;line-height:1;cursor:pointer;z-index:50;
+  display:flex;align-items:center;justify-content:center;opacity:.75;transition:opacity .2s,transform .2s;-webkit-tap-highlight-color:transparent}
+#btn-camara:hover,#btn-camara:active{opacity:1;transform:scale(1.08)}
+#visor{position:fixed;inset:0;z-index:1000;background:#000;display:none;flex-direction:column;align-items:center;justify-content:center}
+#visor.activo{display:flex}
+#visor video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#marco{position:relative;z-index:2;width:min(70vw,70vh,320px);aspect-ratio:1;border:3px solid var(--pink);border-radius:24px;box-shadow:0 0 0 100vmax rgba(0,0,0,.55)}
+#visor-msg{position:absolute;z-index:3;left:16px;right:16px;bottom:max(40px,env(safe-area-inset-bottom));font-size:1.15rem;color:#fff;background:rgba(0,0,0,.6);padding:12px 16px;border-radius:14px}
+#btn-cerrar{position:absolute;z-index:3;top:max(16px,env(safe-area-inset-top));right:max(16px,env(safe-area-inset-right));width:48px;height:48px;border-radius:50%;border:none;background:rgba(0,0,0,.6);color:#fff;font-size:24px;cursor:pointer}
 
-        .icon {
-            font-size: 110px;
-            margin-bottom: 20px;
-            display: inline-block;
-        }
-
-        .spin-slow {
-            animation: spin 10s linear infinite;
-        }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-
-        h1 { font-size: 3.8rem; margin-bottom: 15px; font-weight: 800; line-height: 1.1; }
-        p { font-size: 1.7rem; color: #a8b2d1; }
-
-        .estado-exito {
-            border-color: #00ff88;
-            box-shadow: 0 0 90px rgba(0, 255, 136, 0.4);
-            background: rgba(0, 255, 136, 0.12);
-        }
-
-        .estado-warning {
-            border-color: #ff9d00;
-            box-shadow: 0 0 90px rgba(255, 157, 0, 0.4);
-            animation: shake 0.5s;
-        }
-
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            20% { transform: translateX(-15px); }
-            40% { transform: translateX(15px); }
-            60% { transform: translateX(-15px); }
-            80% { transform: translateX(15px); }
-        }
-
-        .puntos-badge {
-            display: inline-block;
-            background: linear-gradient(45deg, #00ff88, #00b3ff);
-            color: #000;
-            padding: 18px 45px;
-            font-size: 2.2rem;
-            font-weight: 900;
-            border-radius: 60px;
-            margin-top: 35px;
-            box-shadow: 0 10px 25px rgba(0,255,136,0.4);
-            transform: scale(0);
-            animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-            animation-delay: 0.2s;
-        }
-
-        @keyframes popIn { to { transform: scale(1); } }
-
-        .nombre-verde {
-            color: #00ff88;
-            text-shadow: 0 0 25px rgba(0,255,136,0.6);
-            display: block;
-            font-size: 4.2rem;
-            margin-top: 10px;
-        }
-
-        /* ===== Botón de cámara (esquina) ===== */
-        #btn-camara {
-            position: fixed;
-            right: max(16px, env(safe-area-inset-right));
-            bottom: max(16px, env(safe-area-inset-bottom));
-            width: 56px; height: 56px;
-            border-radius: 50%;
-            border: 1px solid rgba(255,255,255,0.25);
-            background: rgba(255,255,255,0.12);
-            backdrop-filter: blur(10px);
-            color: #fff; font-size: 26px; line-height: 1;
-            cursor: pointer; z-index: 50;
-            display: flex; align-items: center; justify-content: center;
-            opacity: 0.75;
-            transition: opacity .2s, transform .2s;
-            -webkit-tap-highlight-color: transparent;
-        }
-        #btn-camara:hover, #btn-camara:active { opacity: 1; transform: scale(1.08); }
-
-        /* ===== Visor de cámara ===== */
-        #visor {
-            position: fixed; inset: 0; z-index: 1000;
-            background: #000;
-            display: none;
-            flex-direction: column;
-            align-items: center; justify-content: center;
-        }
-        #visor.activo { display: flex; }
-        #visor video {
-            position: absolute; inset: 0;
-            width: 100%; height: 100%;
-            object-fit: cover;
-        }
-        #marco {
-            position: relative; z-index: 2;
-            width: min(70vw, 70vh, 320px); aspect-ratio: 1;
-            border: 3px solid #00ff88;
-            border-radius: 24px;
-            box-shadow: 0 0 0 100vmax rgba(0,0,0,0.55);
-        }
-        #visor-msg {
-            position: absolute; z-index: 3;
-            left: 16px; right: 16px;
-            bottom: max(40px, env(safe-area-inset-bottom));
-            font-size: 1.15rem; color: #fff;
-            background: rgba(0,0,0,0.6);
-            padding: 12px 16px; border-radius: 14px;
-        }
-        #btn-cerrar {
-            position: absolute; z-index: 3;
-            top: max(16px, env(safe-area-inset-top));
-            right: max(16px, env(safe-area-inset-right));
-            width: 48px; height: 48px; border-radius: 50%;
-            border: none; background: rgba(0,0,0,0.6);
-            color: #fff; font-size: 24px; cursor: pointer;
-        }
-
-        /* ===== Pantallas pequeñas (celular) ===== */
-        @media (max-width: 700px) {
-            .card { padding: 40px 22px; border-radius: 28px; }
-            .icon { font-size: 80px; }
-            h1 { font-size: 2.2rem; }
-            p { font-size: 1.15rem; }
-            .nombre-verde { font-size: 2.4rem; }
-            .puntos-badge { font-size: 1.5rem; padding: 14px 30px; margin-top: 25px; }
-        }
-    </style>
+@media (max-width:700px){
+  .card{padding:40px 22px;border-radius:28px}.icon{font-size:80px}h1{font-size:2.2rem}p{font-size:1.15rem}
+  .nombre-verde{font-size:2.4rem}.puntos-badge{font-size:1.5rem;padding:14px 30px;margin-top:25px}
+}
+</style>
 </head>
-<body>
+<body class="idle">
 
-    <!-- inputmode="none": el lector físico sigue funcionando, pero no abre el teclado en celulares -->
-    <input type="text" id="scanner-input" inputmode="none" autofocus autocomplete="off">
+<input type="text" id="scanner-input" inputmode="none" autofocus autocomplete="off">
 
-    <div id="pantalla" class="card floating">
-        <div id="icono" class="icon spin-slow">📱</div>
-        <h1 id="titulo">Escanea tu código</h1>
-        <p id="subtitulo">para ganar puntos por visita</p>
-        <div id="contenedor-puntos"></div>
-    </div>
+<!-- Espera: animación del celular acercándose al lector -->
+<div id="idle" aria-live="polite">
+  <div class="scene" aria-hidden="true">
+    <div class="beam"></div><div class="ring"></div>
+    <div class="phone"><div class="screen"><span class="notch"></span>
+      <div class="pass">
+        <img src="logo.png" alt="">
+        <b>Tarjeta de lealtad</b>
+        <div class="qr">
+          <svg viewBox="0 0 7 7" shape-rendering="crispEdges" fill="#111"><path d="M0 0h3v3H0zM4 0h3v3H4zM0 4h3v3H0z"/><path d="M1 1h1v1H1zM5 1h1v1H5zM1 5h1v1H1z" fill="#fff"/><path d="M4 4h1v1H4zM6 4h1v1H6zM5 5h1v1H5zM4 6h1v1H4zM6 6h1v1H6z"/></svg>
+          <span class="scanline"></span>
+        </div>
+      </div>
+    </div></div>
+    <div class="chip"><i><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></i>+1 visita</div>
+    <div class="scanner"><div class="window"></div></div>
+  </div>
+  <div class="hint">Acerca tu celular al lector<small>Muestra tu tarjeta de Apple Wallet y suma puntos</small></div>
+</div>
 
+<!-- Resultado del escaneo -->
+<div id="pantalla" class="card">
+  <div id="icono" class="icon spin-slow">⚙️</div>
+  <h1 id="titulo">Verificando...</h1>
+  <p id="subtitulo"></p>
+  <div id="contenedor-puntos"></div>
+</div>
 
-    <button id="btn-camara" type="button" aria-label="Escanear con la cámara" title="Escanear con la cámara">📷</button>
+<img class="pie" src="Legado_pie.png" alt="Legado TCG. Cartas que conectan, legados que perduran.">
 
-    <div id="visor" role="dialog" aria-label="Escáner de cámara">
-        <video id="video" playsinline muted autoplay></video>
-        <div id="marco"></div>
-        <button id="btn-cerrar" type="button" aria-label="Cerrar cámara">✕</button>
-        <div id="visor-msg">Iniciando cámara...</div>
-    </div>
+<button id="btn-camara" type="button" aria-label="Escanear con la cámara" title="Escanear con la cámara">📷</button>
 
-    <script>
-        const input = document.getElementById('scanner-input');
-        const pantalla = document.getElementById('pantalla');
-        const icono = document.getElementById('icono');
-        const titulo = document.getElementById('titulo');
-        const subtitulo = document.getElementById('subtitulo');
-        const contPuntos = document.getElementById('contenedor-puntos');
+<div id="visor" role="dialog" aria-label="Escáner de cámara">
+  <video id="video" playsinline muted autoplay></video>
+  <div id="marco"></div>
+  <button id="btn-cerrar" type="button" aria-label="Cerrar cámara">✕</button>
+  <div id="visor-msg">Iniciando cámara...</div>
+</div>
 
-        let procesando = false;
+<script>
+const input = document.getElementById('scanner-input');
+const pantalla = document.getElementById('pantalla');
+const icono = document.getElementById('icono');
+const titulo = document.getElementById('titulo');
+const subtitulo = document.getElementById('subtitulo');
+const contPuntos = document.getElementById('contenedor-puntos');
+let procesando = false;
 
-        const visor = document.getElementById('visor');
-        const video = document.getElementById('video');
-        const visorMsg = document.getElementById('visor-msg');
-        const btnCamara = document.getElementById('btn-camara');
-        const btnCerrar = document.getElementById('btn-cerrar');
+const visor = document.getElementById('visor');
+const video = document.getElementById('video');
+const visorMsg = document.getElementById('visor-msg');
+const btnCamara = document.getElementById('btn-camara');
+const btnCerrar = document.getElementById('btn-cerrar');
 
-        // El lector físico escribe en el input oculto: lo mantenemos enfocado salvo con la cámara abierta
-        const enfocar = () => { if (!visor.classList.contains('activo')) input.focus({ preventScroll: true }); };
-        document.addEventListener('click', enfocar);
-        setInterval(enfocar, 800);
+const enfocar = () => { if (!visor.classList.contains('activo')) input.focus({ preventScroll: true }); };
+document.addEventListener('click', enfocar);
+setInterval(enfocar, 800);
 
-        input.addEventListener('keypress', async (e) => {
-            if (e.key === 'Enter') {
-                const passId = input.value.trim();
-                input.value = '';
-                if (passId && !procesando) enviarEscaneo(passId);
-            }
-        });
+input.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    const passId = input.value.trim();
+    input.value = '';
+    if (passId && !procesando) enviarEscaneo(passId);
+  }
+});
 
-        async function enviarEscaneo(passId) {
-            procesando = true;
-            estadoCargando();
+async function enviarEscaneo(passId) {
+  procesando = true;
+  estadoCargando();
+  try {
+    const res = await fetch('/api/escanear', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passId })
+    });
+    const data = await res.json();
+    if (data.estado === 'exito') estadoExito(data.nombre, data.puntosTotales);
+    else if (data.estado === 'ya_visitado') estadoYaVisitado();
+    else estadoError(data.mensaje);
+  } catch (err) {
+    estadoError('No se pudo conectar con el servidor');
+  }
+  setTimeout(estadoInicial, 5000);
+}
 
-            try {
-                const res = await fetch('/api/escanear', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ passId })
-                });
-                const data = await res.json();
+function estadoCargando() {
+  document.body.className = 'resultado';
+  pantalla.className = 'card';
+  icono.className = 'icon spin-slow';
+  icono.innerText = '⚙️';
+  titulo.innerHTML = 'Verificando...';
+  subtitulo.innerText = 'Consultando tu Apple Wallet';
+  contPuntos.innerHTML = '';
+}
 
-                if (data.estado === 'exito') {
-                    estadoExito(data.nombre, data.puntosTotales);
-                } else if (data.estado === 'ya_visitado') {
-                    estadoYaVisitado();
-                } else {
-                    estadoError(data.mensaje);
-                }
+function estadoExito(nombre, puntosTotales) {
+  pantalla.className = 'card estado-exito';
+  icono.className = 'icon';
+  icono.innerText = '🎉';
+  titulo.innerHTML = `¡Bienvenido/a!<span class="nombre-verde">${escapeHtml(nombre)}</span>`;
+  subtitulo.innerText = 'Se agregaron +10 puntos por tu visita de hoy';
+  contPuntos.innerHTML = `<div class="puntos-badge">Saldo actual: ${puntosTotales} pts</div>`;
+  lanzarConfeti();
+}
 
-            } catch (err) {
-                estadoError("No se pudo conectar con el servidor");
-            }
+function estadoYaVisitado() {
+  pantalla.className = 'card estado-warning';
+  icono.className = 'icon';
+  icono.innerText = '⏳';
+  titulo.innerHTML = '¡Visita ya registrada!';
+  subtitulo.innerText = 'Ya acumulaste tus puntos de hoy. Inténtalo de nuevo mañana tras las 00:00.';
+  contPuntos.innerHTML = '';
+}
 
-            setTimeout(estadoInicial, 5000);
-        }
+function estadoError(msj) {
+  pantalla.className = 'card estado-warning';
+  icono.className = 'icon';
+  icono.innerText = '❌';
+  titulo.innerHTML = 'Código no encontrado';
+  subtitulo.innerText = msj || 'Verifica que el pase exista en PassKit.';
+  contPuntos.innerHTML = '';
+}
 
-        function estadoCargando() {
-            pantalla.className = 'card';
-            icono.className = 'icon spin-slow';
-            icono.innerText = '⚙️';
-            titulo.innerHTML = 'Verificando...';
-            subtitulo.innerText = 'Consultando tu Apple Wallet';
-            contPuntos.innerHTML = '';
-        }
+function estadoInicial() {
+  procesando = false;
+  document.body.className = 'idle';   // vuelve la animación del celular
+  contPuntos.innerHTML = '';
+  input.focus();
+}
 
-        function estadoExito(nombre, puntosTotales) {
-            pantalla.className = 'card estado-exito';
-            icono.className = 'icon';
-            icono.innerText = '🎉';
-            titulo.innerHTML = `¡Bienvenido/a!<span class="nombre-verde">${escapeHtml(nombre)}</span>`;
-            subtitulo.innerText = 'Se agregaron +10 puntos por tu visita de hoy';
-            contPuntos.innerHTML = `<div class="puntos-badge">Saldo actual: ${puntosTotales} pts</div>`;
-            lanzarConfeti();
-        }
+function lanzarConfeti() {
+  const end = Date.now() + 3000;
+  const colors = ['#2f80ff', '#ff2b7d', '#c9ccd1'];
+  (function frame() {
+    confetti({ particleCount: 6, angle: 60, spread: 60, origin: { x: 0 }, colors });
+    confetti({ particleCount: 6, angle: 120, spread: 60, origin: { x: 1 }, colors });
+    if (Date.now() < end) requestAnimationFrame(frame);
+  })();
+}
 
-        function estadoYaVisitado() {
-            pantalla.className = 'card estado-warning';
-            icono.className = 'icon';
-            icono.innerText = '⏳';
-            titulo.innerHTML = '¡Visita ya registrada!';
-            subtitulo.innerText = 'Ya acumulaste tus puntos de hoy. Inténtalo de nuevo mañana tras las 00:00.';
-            contPuntos.innerHTML = '';
-        }
+function escapeHtml(t) {
+  return String(t).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
 
-        function estadoError(msj) {
-            pantalla.className = 'card estado-warning';
-            icono.className = 'icon';
-            icono.innerText = '❌';
-            titulo.innerHTML = 'Código no encontrado';
-            subtitulo.innerText = msj || 'Verifica que el pase exista en PassKit.';
-            contPuntos.innerHTML = '';
-        }
+// ===== Escáner por cámara =====
+let stream = null, escaneando = false, detector = null, ultimoTick = 0;
+const canvas = document.createElement('canvas');
+const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-        function estadoInicial() {
-            procesando = false;
-            pantalla.className = 'card floating';
-            icono.className = 'icon spin-slow';
-            icono.innerText = '📱';
-            titulo.innerHTML = 'Escanea tu código';
-            subtitulo.innerText = 'para ganar puntos por visita';
-            contPuntos.innerHTML = '';
-            input.focus();
-        }
+async function prepararDetector() {
+  if (detector !== null) return;
+  detector = false;
+  if ('BarcodeDetector' in window) {
+    try {
+      const soportados = await BarcodeDetector.getSupportedFormats();
+      const formatos = ['qr_code', 'pdf417', 'aztec', 'code_128', 'data_matrix'].filter(f => soportados.includes(f));
+      if (formatos.length) detector = new BarcodeDetector({ formats: formatos });
+    } catch (e) { detector = false; }
+  }
+}
 
-        function lanzarConfeti() {
-            var duration = 3000;
-            var end = Date.now() + duration;
+async function abrirCamara() {
+  if (procesando) return;
+  visor.classList.add('activo');
+  visorMsg.textContent = 'Iniciando cámara...';
+  if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    visorMsg.textContent = 'La cámara solo funciona en páginas seguras (HTTPS) y en un navegador compatible.';
+    return;
+  }
+  try {
+    await prepararDetector();
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
+    });
+    video.srcObject = stream;
+    await video.play();
+    visorMsg.textContent = 'Apunta al código QR';
+    escaneando = true;
+    requestAnimationFrame(bucleEscaneo);
+  } catch (err) {
+    cerrarStream();
+    if (err.name === 'NotAllowedError' || err.name === 'SecurityError') visorMsg.textContent = 'Permiso de cámara denegado. Actívalo en los ajustes del navegador e inténtalo de nuevo.';
+    else if (err.name === 'NotFoundError' || err.name === 'OverconstrainedError') visorMsg.textContent = 'No se encontró ninguna cámara en este dispositivo.';
+    else visorMsg.textContent = 'No se pudo iniciar la cámara (' + (err.name || 'error') + ').';
+  }
+}
 
-            (function frame() {
-                confetti({
-                    particleCount: 6,
-                    angle: 60,
-                    spread: 60,
-                    origin: { x: 0 },
-                    colors: ['#00ff88', '#ffffff', '#00b3ff']
-                });
-                confetti({
-                    particleCount: 6,
-                    angle: 120,
-                    spread: 60,
-                    origin: { x: 1 },
-                    colors: ['#00ff88', '#ffffff', '#00b3ff']
-                });
+function cerrarStream() {
+  escaneando = false;
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  video.srcObject = null;
+}
 
-                if (Date.now() < end) requestAnimationFrame(frame);
-            }());
-        }
+function cerrarCamara() {
+  cerrarStream();
+  visor.classList.remove('activo');
+  input.focus({ preventScroll: true });
+}
 
-        function escapeHtml(t) {
-            return String(t).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
-        }
+async function leerFrame() {
+  if (detector) {
+    try {
+      const r = await detector.detect(video);
+      return r.length ? r[0].rawValue : null;
+    } catch (e) { detector = false; }
+  }
+  if (typeof jsQR === 'undefined' || !video.videoWidth) return null;
+  const escala = Math.min(1, 640 / video.videoWidth);
+  canvas.width = Math.round(video.videoWidth * escala);
+  canvas.height = Math.round(video.videoHeight * escala);
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const code = jsQR(img.data, canvas.width, canvas.height, { inversionAttempts: 'dontInvert' });
+  return code ? code.data : null;
+}
 
-        // ============================================================
-        // ESCÁNER POR CÁMARA (cámara trasera del celular)
-        // ============================================================
-        let stream = null;
-        let escaneando = false;
-        let detector = null;      // BarcodeDetector nativo, o false si no está disponible
-        let ultimoTick = 0;
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+async function bucleEscaneo(ts) {
+  if (!escaneando) return;
+  if (video.readyState >= 2 && ts - ultimoTick > 150) {
+    ultimoTick = ts;
+    const texto = await leerFrame();
+    if (texto && escaneando) {
+      if (navigator.vibrate) navigator.vibrate(100);
+      cerrarCamara();
+      if (!procesando) enviarEscaneo(texto.trim());
+      return;
+    }
+  }
+  requestAnimationFrame(bucleEscaneo);
+}
 
-        async function prepararDetector() {
-            if (detector !== null) return;
-            detector = false;
-            if ('BarcodeDetector' in window) {
-                try {
-                    const soportados = await BarcodeDetector.getSupportedFormats();
-                    const formatos = ['qr_code', 'pdf417', 'aztec', 'code_128', 'data_matrix']
-                        .filter(f => soportados.includes(f));
-                    if (formatos.length) detector = new BarcodeDetector({ formats: formatos });
-                } catch (e) { detector = false; }
-            }
-        }
-
-        async function abrirCamara() {
-            if (procesando) return;
-            visor.classList.add('activo');
-            visorMsg.textContent = 'Iniciando cámara...';
-
-            if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                visorMsg.textContent = 'La cámara solo funciona en páginas seguras (HTTPS) y en un navegador compatible.';
-                return;
-            }
-
-            try {
-                await prepararDetector();
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: { ideal: 'environment' },   // cámara trasera
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    },
-                    audio: false
-                });
-                video.srcObject = stream;
-                await video.play();
-                visorMsg.textContent = 'Apunta al código QR';
-                escaneando = true;
-                requestAnimationFrame(bucleEscaneo);
-            } catch (err) {
-                cerrarStream();
-                if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
-                    visorMsg.textContent = 'Permiso de cámara denegado. Actívalo en los ajustes del navegador e inténtalo de nuevo.';
-                } else if (err.name === 'NotFoundError' || err.name === 'OverconstrainedError') {
-                    visorMsg.textContent = 'No se encontró ninguna cámara en este dispositivo.';
-                } else {
-                    visorMsg.textContent = 'No se pudo iniciar la cámara (' + (err.name || 'error') + ').';
-                }
-            }
-        }
-
-        function cerrarStream() {
-            escaneando = false;
-            if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-            video.srcObject = null;
-        }
-
-        function cerrarCamara() {
-            cerrarStream();
-            visor.classList.remove('activo');
-            input.focus({ preventScroll: true });
-        }
-
-        async function leerFrame() {
-            if (detector) {
-                try {
-                    const r = await detector.detect(video);
-                    return r.length ? r[0].rawValue : null;
-                } catch (e) { detector = false; }   // si falla, seguimos con jsQR
-            }
-            if (typeof jsQR === 'undefined' || !video.videoWidth) return null;
-            const escala = Math.min(1, 640 / video.videoWidth);
-            canvas.width = Math.round(video.videoWidth * escala);
-            canvas.height = Math.round(video.videoHeight * escala);
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const code = jsQR(img.data, canvas.width, canvas.height, { inversionAttempts: 'dontInvert' });
-            return code ? code.data : null;
-        }
-
-        async function bucleEscaneo(ts) {
-            if (!escaneando) return;
-            if (video.readyState >= 2 && ts - ultimoTick > 150) {
-                ultimoTick = ts;
-                const texto = await leerFrame();
-                if (texto && escaneando) {
-                    if (navigator.vibrate) navigator.vibrate(100);
-                    cerrarCamara();
-                    if (!procesando) enviarEscaneo(texto.trim());
-                    return;
-                }
-            }
-            requestAnimationFrame(bucleEscaneo);
-        }
-
-        btnCamara.addEventListener('click', (e) => { e.stopPropagation(); abrirCamara(); });
-        btnCerrar.addEventListener('click', (e) => { e.stopPropagation(); cerrarCamara(); });
-        document.addEventListener('visibilitychange', () => { if (document.hidden) cerrarCamara(); });
-        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && visor.classList.contains('activo')) cerrarCamara(); });
-    </script>
+btnCamara.addEventListener('click', (e) => { e.stopPropagation(); abrirCamara(); });
+btnCerrar.addEventListener('click', (e) => { e.stopPropagation(); cerrarCamara(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) cerrarCamara(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && visor.classList.contains('activo')) cerrarCamara(); });
+</script>
 </body>
 </html>
